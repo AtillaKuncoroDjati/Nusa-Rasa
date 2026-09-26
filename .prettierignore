@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+uploads/
+package-lock.json
+public/assets/
+database/*.sql
+.env*

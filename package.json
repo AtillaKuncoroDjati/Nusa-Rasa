@@ -1,0 +1,39 @@
+{
+  "name": "nusa-rasa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Aplikasi berbagi resep Nusantara berdasarkan desain Figma Atilla Kuncoro Djati.",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env server/index.js --dev",
+    "build": "vite build",
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "test": "node --env-file-if-exists=.env --test tests/*.test.js",
+    "db:setup": "node --env-file-if-exists=.env server/setup.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@fontsource/poppins": "^5.3.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "lucide-react": "^1.48.0",
+    "multer": "^2.4.0",
+    "mysql2": "^3.24.4",
+    "nodemailer": "^10.0.10",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4",
+    "sharp": "^0.35.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "prettier": "^3.9.9",
+    "vite": "^8.3.1"
+  }
+}
