@@ -547,3 +547,160 @@ test('upgrading the old schema preserves recipes and marks existing uploads as i
   );
   assert.equal((await db.get('SELECT COUNT(*) AS n FROM schema_migrations')).n, 1);
 });
+
+test('ingredient search requires every ingredient, escapes wildcards, and combines time, region and saved filters', async (t) => {
+  const { request, register } = await setup(t);
+  const a = await register('Pencari Resep');
+  const image = await imageUpload(request, a);
+  const made = await request('/recipes', {
+    method: 'POST',
+    session: a,
+    body: {
+      ...sample,
+      image,
+      title: 'Menu keluarga hari ini',
+      ingredients: ['200 g ayam segar', '2 butir telur'],
+      minutes: 20,
+    },
+  });
+  const id = made.data.recipe.id;
+  await request(`/recipes/${id}/bookmark`, { method: 'PUT', session: a, body: { active: true } });
+  const search = (args) => request('/recipes?' + new URLSearchParams(args), { session: a });
+  assert.deepEqual(
+    (
+      await search({
+        ingredients: 'AYAM, telur',
+        maxMinutes: '30',
+        region: 'Jawa Barat',
+        scope: 'saved',
+      })
+    ).data.recipes.map((r) => r.id),
+    [id],
+  );
+  assert.equal(
+    (await search({ ingredients: 'ayam, telur', maxMinutes: '15' })).data.recipes.length,
+    0,
+  );
+  assert.equal(
+    (await search({ ingredients: 'ayam, bahan-yang-tidak-ada' })).data.recipes.length,
+    0,
+  );
+  assert.equal((await search({ ingredients: '%' })).data.recipes.length, 0);
+  assert.equal((await search({ q: '_' })).data.recipes.length, 0);
+  assert.ok((await search({ q: 'ayam' })).data.recipes.some((r) => r.id === id));
+  assert.equal((await search({ ingredients: 'a,b,c,d,e,f,g' })).status, 400);
+  assert.equal((await search({ ingredients: 'a'.repeat(41) })).status, 400);
+  assert.equal((await search({ maxMinutes: 'nope' })).status, 400);
+  assert.equal((await search({ maxMinutes: '0' })).status, 400);
+});
+
+test('recipe reviews keep one rating per cook, persist photos, enforce ownership, and update averages', async (t) => {
+  const { db, database, request, register } = await setup(t);
+  const owner = await register('Pemilik Resep'),
+    a = await register('Pencoba A', 'review-a@example.invalid'),
+    b = await register('Pencoba B', 'review-b@example.invalid');
+  const image = await imageUpload(request, owner),
+    photo = await imageUpload(request, a),
+    otherPhoto = await imageUpload(request, b);
+  const id = (
+    await request('/recipes', { method: 'POST', session: owner, body: { ...sample, image } })
+  ).data.recipe.id;
+  const path = `/recipes/${id}/review`,
+    body = { rating: 5, body: 'Resepnya sudah dicoba dan mudah diikuti.', image: photo };
+  assert.equal((await request(path, { method: 'PUT', body })).status, 401);
+  assert.equal(
+    (
+      await request(path, {
+        method: 'PUT',
+        body,
+        session: a,
+        headers: { 'X-CSRF-Token': 'invalid' },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (await request(path, { method: 'PUT', body: { ...body, image }, session: owner })).status,
+    403,
+  );
+  assert.equal(
+    (await request(path, { method: 'PUT', body: { ...body, image: otherPhoto }, session: a }))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await request(path, { method: 'PUT', body: { ...body, rating: 6 }, session: a })).status,
+    400,
+  );
+  assert.equal(
+    (await request(path, { method: 'PUT', body: { ...body, rating: 2.5 }, session: a })).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(path, {
+        method: 'PUT',
+        body: { ...body, image: 'https://example.com/photo.jpg' },
+        session: a,
+      })
+    ).status,
+    400,
+  );
+  const saves = await Promise.all(
+    Array.from({ length: 3 }, () => request(path, { method: 'PUT', body, session: a })),
+  );
+  assert.ok(saves.every((r) => r.status === 200));
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM reviews WHERE recipe_id=?', id)).n, 1);
+  assert.equal(
+    (await db.get('SELECT COUNT(*) AS n FROM notifications WHERE recipe_id=?', id)).n,
+    1,
+  );
+  const second = await openDatabase({ database });
+  try {
+    assert.equal(
+      (await second.get('SELECT image FROM reviews WHERE recipe_id=? AND user_id=?', id, a.user.id))
+        .image,
+      photo,
+    );
+  } finally {
+    await second.close();
+  }
+  let r = await request(path, {
+    method: 'PUT',
+    body: { rating: 3, body: 'Bumbunya bisa disesuaikan lagi.', image: otherPhoto },
+    session: b,
+  });
+  assert.equal(r.data.recipe.review_count, 2);
+  assert.equal(r.data.recipe.rating_average, 4);
+  r = await request(path, { method: 'PUT', body: { ...body, rating: 4, image: '' }, session: a });
+  assert.equal(r.data.recipe.review_count, 2);
+  assert.equal(r.data.recipe.rating_average, 3.5);
+  const listing = await request(`/recipes/${id}/reviews`, { session: a });
+  assert.equal(listing.data.mine.rating, 4);
+  assert.equal(listing.data.mine.image, '');
+  assert.equal((await request(`/recipes/${id}/reviews`)).data.mine, null);
+  // Deleting this account's review must not touch the other cook's review.
+  r = await request(path, { method: 'DELETE', session: a });
+  assert.equal(r.data.recipe.review_count, 1);
+  assert.equal(r.data.recipe.rating_average, 3);
+  assert.equal(
+    (await request(`/recipes/${id}/reviews`, { session: b })).data.mine.image,
+    otherPhoto,
+  );
+  await db.run(
+    'INSERT INTO comments(user_id,recipe_id,body) VALUES(?,?,?)',
+    b.user.id,
+    id,
+    'Komentar lama tetap ada.',
+  );
+  await db.initialize();
+  await db.initialize();
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM reviews WHERE recipe_id=?', id)).n, 1);
+  assert.equal(
+    (await request(`/recipes/${id}/comments`)).data.comments[0].body,
+    'Komentar lama tetap ada.',
+  );
+  await request('/recipes/' + id, { method: 'DELETE', session: owner });
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM reviews WHERE recipe_id=?', id)).n, 0);
+  assert.equal((await request(path, { method: 'PUT', body, session: a })).status, 404);
+});

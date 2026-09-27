@@ -22,10 +22,12 @@ erDiagram
   users ||--o{ likes : menyukai
   users ||--o{ bookmarks : menandai
   users ||--o{ comments : berkomentar
+  users ||--o{ reviews : mengulas
   users ||--o{ notifications : menerima
   recipes ||--o{ likes : memiliki
   recipes ||--o{ bookmarks : disimpan
   recipes ||--o{ comments : dibahas
+  recipes ||--o{ reviews : dinilai
   recipes ||--o{ notifications : terkait
 ```
 
@@ -51,6 +53,14 @@ Pemutar video menggunakan kontrol browser, `playsInline`, dan `preload="metadata
 
 Setiap transaksi memegang satu koneksi pool sampai commit/rollback. Daftar akun dan notifikasi pembuka dibuat bersama. Like dan notifikasinya dibuat bersama. Permintaan serta pemakaian token pemulihan mengunci baris pengguna agar dua permintaan bersamaan tidak memakai token yang sama.
 
+Ulasan memakai primary key gabungan `(recipe_id, user_id)`, rating 1–5, dan foto dari unggahan milik pengulas. Penyimpanan ulasan mengunci baris resep agar unggahan serentak dari akun yang sama tidak menggandakan notifikasi. Rating rata-rata dan jumlah ulasan dihitung dari seluruh tabel ulasan, bukan hanya 50 entri terbaru yang ditampilkan. Pemilik resep tidak dapat mengulas resep sendiri. Tabel baru dibuat secara idempoten oleh `db:setup`; komentar lama tetap terpisah.
+
+## Pencarian dan mode memasak
+
+`GET /api/recipes` mendukung `ingredients` (maksimal 6 istilah dipisahkan koma, masing-masing 40 karakter) dan `maxMinutes` (1–1440). Pencarian memakai substring tidak peka huruf besar/kecil sesuai collation database, mensyaratkan setiap bahan, dan meng-escape wildcard SQL. Semua nilai disisipkan melalui parameter query. Ini tidak menafsirkan sinonim, alergi, atau kecukupan seluruh bahan resep.
+
+Mode memasak menggunakan dialog modal dengan fokus keyboard, progres langkah, dan satu timer dapur yang independen dari nomor langkah. Hitung mundur memakai deadline waktu aktual agar tidak bergantung pada jumlah tick saat tab berada di latar belakang. Timer dan progres hanya hidup selama dialog terbuka; tidak dikirim ke server. Gerakan kartu serta skeleton menghormati preferensi reduced motion.
+
 ## Endpoint utama
 
 | Endpoint                                                               | Fungsi                                                        |
@@ -63,10 +73,12 @@ Setiap transaksi memegang satu koneksi pool sampai commit/rollback. Daftar akun 
 | `POST /api/recipes`, `PUT /api/recipes/:id`, `DELETE /api/recipes/:id` | Kelola resep                                                  |
 | `PUT /api/recipes/:id/like`, `/bookmark`                               | Set status suka/penanda dengan `{active: boolean}`            |
 | `GET/POST /api/recipes/:id/comments`                                   | Komentar resep                                                |
+| `GET /api/recipes/:id/reviews`                                         | 50 ulasan terbaru, ulasan akun saat ini, jumlah dan rata-rata |
+| `PUT/DELETE /api/recipes/:id/review`                                   | Simpan atau hapus ulasan milik akun saat ini                  |
 | `GET /api/notifications`, `PATCH /api/notifications/read`              | Pemberitahuan pengguna                                        |
 | `POST /api/uploads`                                                    | Foto, multipart field `image`                                 |
 | `POST /api/uploads/video`                                              | Video, multipart field `video`; mengembalikan path dan durasi |
 
 ## Verifikasi
 
-Pengujian mencakup login/logout, hash kata sandi, CSRF/origin, CRUD resep, persistensi melalui koneksi database kedua, hak kepemilikan, unggahan tidak valid, like/penanda per pengguna, komentar/notifikasi, reset token kedaluwarsa dan sekali pakai, rollback, serta permintaan bersamaan. Tes video menggunakan fixture sintetis MP4 dan WebM untuk unggah, persistensi, byte range, ganti/hapus, penolakan berkas palsu atau terlalu besar, serta migrasi skema lama tanpa kehilangan data. Semua berjalan pada database MySQL sementara, terpisah dari database aplikasi.
+Pengujian mencakup login/logout, hash kata sandi, CSRF/origin, CRUD resep, persistensi melalui koneksi database kedua, hak kepemilikan, unggahan tidak valid, like/penanda per pengguna, komentar/notifikasi, reset token kedaluwarsa dan sekali pakai, rollback, serta permintaan bersamaan. Tes video menggunakan fixture sintetis MP4 dan WebM untuk unggah, persistensi, byte range, ganti/hapus, penolakan berkas palsu atau terlalu besar, serta migrasi skema lama tanpa kehilangan data. Tes pencarian menggabungkan bahan, durasi, daerah dan penanda, termasuk escape wildcard. Tes ulasan memeriksa rating, foto, rata-rata, pembaruan tanpa duplikasi, kepemilikan, persistensi, notifikasi serentak, dan penghapusan. Semua berjalan pada database MySQL sementara, terpisah dari database aplikasi.

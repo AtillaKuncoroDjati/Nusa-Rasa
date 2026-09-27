@@ -1,6 +1,6 @@
 # Nusa Rasa
 
-Aplikasi berbagi resep Nusantara dengan desain oleh **Atilla Kuncoro Djati**. Dari menemukan menu rumahan hingga membagikan kreasi sendiri, Nusa Rasa menghubungkan pencinta masakan Indonesia dalam satu dapur digital.
+Aplikasi berbagi resep Nusantara oleh **Tim Nusa Rasa**. Dari menemukan menu rumahan hingga membagikan kreasi sendiri, Nusa Rasa menghubungkan pencinta masakan Indonesia dalam satu dapur digital.
 
 [Lihat desain Figma](https://www.figma.com/design/L2yJLqEXoqZ5mpSdUfSZTI/Nusa-Rasa-Project?node-id=300-442)
 
@@ -10,15 +10,24 @@ Sidebar oranye, kartu foto makanan, dan tipografi Poppins mengikuti arah desain 
 
 | Halaman            | Yang bisa dilakukan                                                                                                                                     |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Beranda & Jelajahi | Melihat resep, mencari judul/deskripsi, menyaring daerah, mengurutkan resep terbaru atau paling disukai                                                 |
-| Detail resep       | Membaca bahan dan langkah, memutar video memasak, mencentang bahan yang siap, menyukai, menandai, membagikan tautan, dan memberi komentar               |
+| Beranda & Jelajahi | Inspirasi pilihan, mencari judul/bahan, menyaring daerah dan durasi, mengurutkan resep terbaru atau paling disukai                                      |
+| Detail resep       | Mode memasak dengan timer, video, bahan dan langkah, suka/penanda, berbagi tautan, komentar, serta ulasan bintang dan foto                              |
 | Unggah resep       | Mengunggah foto sampul dan video opsional, mengisi informasi, bahan, dan cara membuat dalam dua langkah; video dapat diganti atau dilepas saat mengedit |
 | Dapur Saya         | Melihat resep sendiri serta mengedit profil dan foto                                                                                                    |
 | Penanda            | Mengumpulkan resep favorit per akun                                                                                                                     |
-| Notifikasi         | Melihat pemberitahuan suka dan komentar dari pengguna lain                                                                                              |
+| Notifikasi         | Melihat pemberitahuan suka, komentar, dan ulasan baru dari pengguna lain                                                                                |
 | Akun               | Daftar, masuk, keluar, dan pemulihan kata sandi melalui SMTP bila dikonfigurasi                                                                         |
 
 Enam resep contoh tersedia untuk mencoba aplikasi. Akun editorial **Dapur Nusa Rasa** tidak memiliki kata sandi dan tidak dapat digunakan untuk masuk. Buat akun sendiri melalui **Daftar**.
+
+### Menemukan dan mencoba resep
+
+- **Beranda:** inspirasi pilihan, tautan resep maksimal 30 menit, serta kartu dengan jumlah bahan, porsi, durasi, video, dan rating yang berasal dari ulasan pengguna.
+- **Cari bahan:** isi bahan dengan pemisah koma (maksimal 6), misalnya `kacang, mentimun`. Semua bahan tersebut harus ditemukan dalam daftar bahan resep; pencarian ini bukan pengecekan bahwa seluruh kebutuhan resep sudah tersedia. Filter dapat digabung dengan nama resep, daerah, dan durasi.
+- **Mode memasak:** buka detail resep lalu pilih **Mulai mode memasak**. Ikuti satu langkah per layar, tandai selesai, lihat bahan, dan gunakan timer 1–180 menit yang dapat dijeda atau diatur ulang. Timer tetap berjalan saat berpindah langkah, tetapi berhenti saat mode ditutup, memasak selesai, atau halaman dimuat ulang. Pemberitahuan waktu habis tampil di layar tanpa bunyi atau notifikasi sistem.
+- **Ulasan dan hasil masakan:** pengguna yang masuk dapat memberi 1–5 bintang, cerita, dan foto opsional (maksimal 5 MB). Setiap akun memiliki satu ulasan per resep yang dapat diperbarui atau dihapus. Penulis resep tidak menilai resepnya sendiri. Komentar tetap tersedia untuk pertanyaan dan diskusi.
+
+Saat memperbarui versi ini, jalankan `npm run db:setup` sebelum memulai aplikasi. Tabel `reviews` ditambahkan tanpa mengubah komentar, akun, atau resep sebelumnya.
 
 ## Teknologi
 
@@ -153,4 +162,4 @@ Untuk hosting, gunakan layanan yang menjalankan Node.js, koneksi MySQL yang ters
 
 ## Kredit
 
-Konsep dan desain antarmuka: **Atilla Kuncoro Djati**, berdasarkan proyek Figma Nusa Rasa. Foto makanan contoh berasal dari aset desain yang diberikan; hak atas foto tetap pada pemilik aslinya. Ikon menggunakan [Lucide](https://lucide.dev/), font menggunakan [Poppins](https://fonts.google.com/specimen/Poppins). Konten resep contoh disiapkan untuk demonstrasi aplikasi.
+Dibuat oleh **Tim Nusa Rasa**, berdasarkan proyek Figma Nusa Rasa. Foto makanan contoh berasal dari aset desain yang diberikan; hak atas foto tetap pada pemilik aslinya. Ikon menggunakan [Lucide](https://lucide.dev/), font menggunakan [Poppins](https://fonts.google.com/specimen/Poppins). Konten resep contoh disiapkan untuk demonstrasi aplikasi.

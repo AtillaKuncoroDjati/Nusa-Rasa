@@ -24,6 +24,9 @@ import {
 import { api } from './api';
 import { useApp, Avatar, Spinner, Notice, Empty } from './App';
 import { RecipeVideo } from './video';
+import { HomeIntro, RecipeFilters, RecipeSkeleton } from './discovery';
+import { CookingMode } from './cooking';
+import { RecipeReviews, Rating } from './reviews';
 
 export function RecipeCard({ recipe, onChange }) {
   const { user, toast } = useApp(),
@@ -114,7 +117,10 @@ export function RecipeCard({ recipe, onChange }) {
             </span>
             <i />
             <span>{recipe.servings} porsi</span>
+            <i />
+            <span>{recipe.ingredients.length} bahan</span>
           </div>
+          <Rating average={recipe.rating_average} count={recipe.review_count} />
         </div>
       </div>
     </article>
@@ -128,6 +134,8 @@ export function RecipeList({ kind = 'home' }) {
     [loading, setLoading] = useState(true),
     [error, setError] = useState('');
   const q = params.get('q') || '',
+    ingredients = params.get('bahan') || '',
+    maxMinutes = params.get('menit') || '',
     region = params.get('daerah') || '',
     sort = params.get('urut') || 'popular';
   useEffect(() => {
@@ -136,10 +144,12 @@ export function RecipeList({ kind = 'home' }) {
     setError('');
     const query = new URLSearchParams({
       q,
+      ingredients,
       region,
       sort: sort === 'newest' ? 'newest' : 'popular',
       scope: kind === 'saved' ? 'saved' : kind === 'mine' ? 'mine' : 'all',
     });
+    if (maxMinutes) query.set('maxMinutes', maxMinutes);
     api('/recipes?' + query)
       .then((d) => {
         if (live) setRecipes(d.recipes);
@@ -153,7 +163,7 @@ export function RecipeList({ kind = 'home' }) {
     return () => {
       live = false;
     };
-  }, [q, region, sort, kind, user?.id]);
+  }, [q, ingredients, maxMinutes, region, sort, kind, user?.id]);
   const setFilter = (name, value) => {
     const next = new URLSearchParams(params);
     value ? next.set(name, value) : next.delete(name);
@@ -167,6 +177,25 @@ export function RecipeList({ kind = 'home' }) {
     );
   return (
     <section className="list-page">
+      {kind === 'home' && !loading && !error && !q && !ingredients && !region && !maxMinutes && (
+        <HomeIntro recipes={recipes} />
+      )}
+      <div className="discovery-heading">
+        <div>
+          <span className="story-kicker">JELAJAHI RASA</span>
+          <h2>
+            {kind === 'saved'
+              ? 'Untuk dimasak nanti.'
+              : kind === 'mine'
+                ? 'Kreasi dari dapurmu.'
+                : 'Resep untuk setiap hari.'}
+          </h2>
+        </div>
+        <span className="discovery-note">
+          <MapPin size={15} /> Cerita dari berbagai daerah
+        </span>
+      </div>
+      <RecipeFilters params={params} setParams={setParams} />
       <div className="list-intro">
         <p>
           {kind === 'saved'
@@ -191,25 +220,6 @@ export function RecipeList({ kind = 'home' }) {
           </select>
         </label>
       </div>
-      {kind === 'search' && (
-        <form
-          className="large-search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setFilter('q', new FormData(e.currentTarget).get('q'));
-          }}
-        >
-          <Search size={20} />
-          <input
-            name="q"
-            aria-label="Kata kunci resep"
-            defaultValue={q}
-            placeholder="Mau masak apa hari ini?"
-            maxLength={100}
-          />
-          <button className="button dark small">Cari resep</button>
-        </form>
-      )}
       <div className="region-tabs" aria-label="Filter daerah">
         <button
           className={!region ? 'selected' : ''}
@@ -231,7 +241,7 @@ export function RecipeList({ kind = 'home' }) {
       </div>
       <Notice>{error}</Notice>
       {loading ? (
-        <Spinner />
+        <RecipeSkeleton />
       ) : !error && recipes.length ? (
         <>
           <div className="recipe-grid">
@@ -284,6 +294,7 @@ export function RecipeDetail() {
     [tab, setTab] = useState('ingredients'),
     [done, setDone] = useState([]),
     [comments, setComments] = useState([]),
+    [cooking, setCooking] = useState(false),
     [busy, setBusy] = useState(false);
   useEffect(() => {
     let live = true;
@@ -365,6 +376,9 @@ export function RecipeDetail() {
             {recipe.region}
           </span>
           <h2>{recipe.title}</h2>
+          <a href="#ulasan" className="detail-rating-link">
+            <Rating average={recipe.rating_average} count={recipe.review_count} />
+          </a>
         </div>
         <button className="button outline small" onClick={share}>
           <Share2 size={17} /> Bagikan
@@ -422,6 +436,13 @@ export function RecipeDetail() {
           </div>
         </div>
         <div className="recipe-instructions">
+          <button className="button dark start-cooking" onClick={() => setCooking(true)}>
+            <ChefHat size={20} />
+            <span>
+              Mulai mode memasak<small>Satu langkah, satu waktu.</small>
+            </span>
+            <ArrowRight size={18} />
+          </button>
           <div className="recipe-facts">
             <div>
               <Clock />
@@ -493,6 +514,12 @@ export function RecipeDetail() {
           </div>
         </div>
       </div>
+      {cooking && <CookingMode key={recipe.id} recipe={recipe} onClose={() => setCooking(false)} />}
+      <RecipeReviews
+        key={`${recipe.id}-${user?.id || 'guest'}`}
+        recipe={recipe}
+        onChange={setRecipe}
+      />
       <section className="comments">
         <div className="section-heading">
           <h3>

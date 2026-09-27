@@ -9,6 +9,7 @@ import { writeFile, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { registerVideoUploads } from './video.js';
+import { registerReviews } from './reviews.js';
 import { z } from 'zod';
 import { digest, randomToken, hashPassword, verifyPassword, publicUser } from './auth.js';
 import {
@@ -281,12 +282,15 @@ export function createApp({
     res.json({ user: publicUser(await db.get('SELECT * FROM users WHERE id=?', req.user.id)) });
   });
   const select = `SELECT r.*, u.name AS author_name, u.avatar AS author_avatar,
+    (SELECT COUNT(*) FROM reviews v WHERE v.recipe_id=r.id) AS review_count,
+    (SELECT AVG(v.rating) FROM reviews v WHERE v.recipe_id=r.id) AS rating_average,
     (SELECT COUNT(*) FROM likes l WHERE l.recipe_id=r.id) AS like_count,
     EXISTS(SELECT 1 FROM likes l WHERE l.recipe_id=r.id AND l.user_id=?) AS liked,
     EXISTS(SELECT 1 FROM bookmarks b WHERE b.recipe_id=r.id AND b.user_id=?) AS saved
     FROM recipes r JOIN users u ON r.author_id=u.id`;
   const serialize = (row) => ({
     ...row,
+    rating_average: row.rating_average === null ? null : Number(row.rating_average),
     ingredients: JSON.parse(row.ingredients),
     steps: JSON.parse(row.steps),
     liked: Boolean(row.liked),
@@ -301,6 +305,8 @@ export function createApp({
     const query = parse(
       z.object({
         q: z.string().max(100).default(''),
+        ingredients: z.string().max(240).default(''),
+        maxMinutes: z.coerce.number().int().min(1).max(1440).optional(),
         region: z.string().max(40).default(''),
         scope: z.enum(['all', 'saved', 'mine']).default('all'),
         sort: z.enum(['popular', 'newest']).default('popular'),
@@ -311,9 +317,29 @@ export function createApp({
     const params = [req.user?.id || 0, req.user?.id || 0],
       clauses = [];
     if (query.q) {
-      clauses.push('(r.title LIKE ? OR r.description LIKE ? OR r.region LIKE ?)');
-      const pattern = '%' + query.q + '%';
-      params.push(pattern, pattern, pattern);
+      clauses.push(
+        "(r.title LIKE ? ESCAPE '=' OR r.description LIKE ? ESCAPE '=' OR r.region LIKE ? ESCAPE '=' OR r.ingredients LIKE ? ESCAPE '=')",
+      );
+      const pattern = '%' + query.q.replace(/[=%_]/g, (c) => '=' + c) + '%';
+      params.push(pattern, pattern, pattern, pattern);
+    }
+    const ingredients = [
+      ...new Set(
+        query.ingredients
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
+    if (ingredients.length > 6 || ingredients.some((s) => s.length > 40))
+      fail(400, 'Gunakan maksimal 6 bahan, masing-masing maksimal 40 karakter.');
+    for (const ingredient of ingredients) {
+      clauses.push("r.ingredients LIKE ? ESCAPE '='");
+      params.push('%' + ingredient.replace(/[=%_]/g, (c) => '=' + c) + '%');
+    }
+    if (query.maxMinutes) {
+      clauses.push('r.minutes <= ?');
+      params.push(query.maxMinutes);
     }
     if (query.region) {
       clauses.push('r.region=?');
@@ -340,6 +366,7 @@ export function createApp({
   app.get('/api/recipes/:id', async (req, res) =>
     res.json({ recipe: await recipe(req.params.id, req.user?.id) }),
   );
+  registerReviews(app, { db, auth, recipe, ownedImage });
   app.post('/api/recipes', auth, async (req, res) => {
     const d = parse(recipeSchema, req.body);
     if (!(await ownedImage(d.image, req.user.id)))

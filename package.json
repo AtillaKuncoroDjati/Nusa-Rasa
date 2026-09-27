@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Aplikasi berbagi resep Nusantara berdasarkan desain Figma Atilla Kuncoro Djati.",
+  "description": "Aplikasi berbagi resep Nusantara oleh Tim Nusa Rasa.",
   "engines": {
     "node": ">=24.0.0 <25"
   },

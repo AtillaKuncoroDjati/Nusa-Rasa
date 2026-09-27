@@ -150,7 +150,7 @@ function Layout({ children }) {
   const titles = location.pathname.startsWith('/resep/')
     ? 'Dari dapur Nusantara'
     : {
-        '/': 'Resep Trending',
+        '/': 'Selamat datang di dapur kita',
         '/jelajahi': 'Jelajahi Masakan Nusantara',
         '/cari': 'Temukan resep favoritmu',
         '/penanda': 'Resep yang Kamu Simpan',
@@ -224,7 +224,13 @@ function Layout({ children }) {
             </Link>
           </div>
           {user ? (
-            <button className="logout" onClick={logout}>
+            <button
+              className="logout"
+              onClick={() => {
+                setOpen(false);
+                logout();
+              }}
+            >
               <LogOut size={18} /> Keluar
             </button>
           ) : (
@@ -249,14 +255,7 @@ function Layout({ children }) {
           </button>
           <div className="page-title">
             <span className="eyebrow">DARI DAPUR, UNTUK NUSANTARA</span>
-            <h1>
-              {titles}
-              {location.pathname === '/' && (
-                <span className="fire" aria-hidden="true">
-                  🔥
-                </span>
-              )}
-            </h1>
+            <h1>{titles}</h1>
           </div>
           <div className="header-actions">
             {user ? (
@@ -288,7 +287,7 @@ function Layout({ children }) {
             NusaRasa<span>®</span>
           </Link>
           <span>Dibuat dengan rasa, dibagikan dengan cinta.</span>
-          <small>Desain oleh Atilla Kuncoro Djati</small>
+          <small>Dibuat oleh Tim Nusa Rasa</small>
         </footer>
       </div>
     </div>

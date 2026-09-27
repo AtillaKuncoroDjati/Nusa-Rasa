@@ -18,6 +18,7 @@ try {
   await db.get('SELECT id FROM users LIMIT 1');
   await db.get('SELECT video FROM recipes LIMIT 1');
   await db.get('SELECT kind FROM uploads LIMIT 1');
+  await db.get('SELECT rating FROM reviews LIMIT 1');
 } catch (error) {
   await db?.close();
   console.error(
