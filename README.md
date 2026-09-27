@@ -4,6 +4,12 @@ Aplikasi berbagi resep Nusantara oleh **Tim Nusa Rasa**. Dari menemukan menu rum
 
 [Lihat desain Figma](https://www.figma.com/design/L2yJLqEXoqZ5mpSdUfSZTI/Nusa-Rasa-Project?node-id=300-442)
 
+## Pratinjau aplikasi
+
+![Beranda Nusa Rasa dengan navigasi, inspirasi Karedok Spesial, dan pilihan pencarian resep](docs/images/nusa-rasa-beranda.jpg)
+
+Tangkapan layar aplikasi **Tim Nusa Rasa** yang dijalankan secara lokal, menampilkan inspirasi resep pilihan serta pintasan mencari masakan berdasarkan waktu dan bahan yang tersedia. Klik gambar untuk melihat ukuran penuh.
+
 ## Tampilan dan fitur
 
 Sidebar oranye, kartu foto makanan, dan tipografi Poppins mengikuti arah desain Figma. Navigasi menyesuaikan layar desktop dan HP.
