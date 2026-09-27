@@ -8,6 +8,7 @@ import { mkdirSync } from 'node:fs';
 import { writeFile, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { registerVideoUploads } from './video.js';
 import { z } from 'zod';
 import { digest, randomToken, hashPassword, verifyPassword, publicUser } from './auth.js';
 import {
@@ -246,7 +247,20 @@ export function createApp({
   });
   async function ownedImage(path, userId) {
     return Boolean(
-      await db.get('SELECT path FROM uploads WHERE path=? AND user_id=?', path, userId),
+      await db.get(
+        "SELECT path FROM uploads WHERE path=? AND user_id=? AND kind='image'",
+        path,
+        userId,
+      ),
+    );
+  }
+  async function ownedVideo(path, userId) {
+    return Boolean(
+      await db.get(
+        "SELECT path FROM uploads WHERE path=? AND user_id=? AND kind='video'",
+        path,
+        userId,
+      ),
     );
   }
   app.patch('/api/profile', auth, async (req, res) => {
@@ -330,8 +344,10 @@ export function createApp({
     const d = parse(recipeSchema, req.body);
     if (!(await ownedImage(d.image, req.user.id)))
       fail(400, 'Unggah foto resepmu terlebih dahulu.');
+    if (d.video && !(await ownedVideo(d.video, req.user.id)))
+      fail(400, 'Gunakan video yang kamu unggah sendiri.');
     const result = await db.run(
-      'INSERT INTO recipes(author_id,title,description,region,image,minutes,servings,ingredients,steps) VALUES(?,?,?,?,?,?,?,?,?)',
+      'INSERT INTO recipes(author_id,title,description,region,image,minutes,servings,ingredients,steps,video) VALUES(?,?,?,?,?,?,?,?,?,?)',
       req.user.id,
       d.title,
       d.description,
@@ -341,6 +357,7 @@ export function createApp({
       d.servings,
       JSON.stringify(d.ingredients),
       JSON.stringify(d.steps),
+      d.video || '',
     );
     res.status(201).json({ recipe: await recipe(result.insertId, req.user.id) });
   });
@@ -350,8 +367,11 @@ export function createApp({
     const d = parse(recipeSchema, req.body);
     if (d.image !== old.image && !(await ownedImage(d.image, req.user.id)))
       fail(400, 'Gunakan foto yang kamu unggah sendiri.');
+    const video = d.video ?? old.video;
+    if (video && !(await ownedVideo(video, req.user.id)))
+      fail(400, 'Gunakan video yang kamu unggah sendiri.');
     await db.run(
-      'UPDATE recipes SET title=?,description=?,region=?,image=?,minutes=?,servings=?,ingredients=?,steps=?,updated_at=CURRENT_TIMESTAMP(3) WHERE id=?',
+      'UPDATE recipes SET title=?,description=?,region=?,image=?,minutes=?,servings=?,ingredients=?,steps=?,video=?,updated_at=CURRENT_TIMESTAMP(3) WHERE id=?',
       d.title,
       d.description,
       d.region,
@@ -360,6 +380,7 @@ export function createApp({
       d.servings,
       JSON.stringify(d.ingredients),
       JSON.stringify(d.steps),
+      video,
       old.id,
     );
     res.json({ recipe: await recipe(old.id, req.user.id) });
@@ -477,6 +498,7 @@ export function createApp({
     }
     res.status(201).json({ path });
   });
+  registerVideoUploads(app, { db, root, auth, skipLimits });
   app.use(
     '/uploads',
     express.static(uploadDir, {

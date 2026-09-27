@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import { readFile } from 'node:fs/promises';
+import { migrate } from './migrations.js';
 
 export function databaseConfig(overrides = {}) {
   return {
@@ -69,11 +70,30 @@ export async function openDatabase(overrides = {}) {
     },
     async initialize() {
       const schema = await readFile(new URL('../database/schema.sql', import.meta.url), 'utf8');
-      for (const statement of schema
-        .split(';')
-        .map((s) => s.trim())
-        .filter(Boolean))
-        await pool.query(statement);
+      const connection = await pool.getConnection();
+      const sql = queries(connection);
+      let locked = false;
+      try {
+        const result = await sql.get(
+          "SELECT GET_LOCK(SHA2(CONCAT(DATABASE(), ':nusa-migrations'),256),10) AS acquired",
+        );
+        if (Number(result.acquired) !== 1)
+          throw new Error('Database migration is already running.');
+        locked = true;
+        for (const statement of schema
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean))
+          await connection.query(statement);
+        await migrate(sql);
+      } finally {
+        try {
+          if (locked)
+            await sql.get("SELECT RELEASE_LOCK(SHA2(CONCAT(DATABASE(), ':nusa-migrations'),256))");
+        } finally {
+          connection.release();
+        }
+      }
     },
     close: () => pool.end(),
   };

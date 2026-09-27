@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { api, uploadImage } from './api';
 import { useApp, Avatar, Notice, Spinner } from './App';
+import { VideoUpload } from './video';
 const blank = {
   title: '',
   description: '',
@@ -20,6 +21,7 @@ const blank = {
   minutes: 30,
   servings: 2,
   image: '',
+  video: '',
   ingredients: [''],
   steps: [''],
 };
@@ -88,6 +90,7 @@ export function RecipeEditor() {
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false),
+    [videoUploading, setVideoUploading] = useState(false),
     [step, setStep] = useState(0),
     [confirmDelete, setConfirmDelete] = useState(false);
   const dialog = useRef();
@@ -126,6 +129,7 @@ export function RecipeEditor() {
     setForm((f) => ({ ...f, [field]: f[field].map((v, i) => (i === index ? value : v)) }));
   function next(e) {
     e.preventDefault();
+    if (uploading || videoUploading) return;
     if (!form.image) {
       setError('Tambahkan foto masakanmu terlebih dahulu.');
       return;
@@ -136,6 +140,7 @@ export function RecipeEditor() {
   }
   async function submit(e) {
     e.preventDefault();
+    if (uploading || videoUploading) return;
     setError('');
     setBusy(true);
     try {
@@ -144,6 +149,7 @@ export function RecipeEditor() {
         description: form.description,
         region: form.region,
         image: form.image,
+        video: form.video || '',
         minutes: Number(form.minutes),
         servings: Number(form.servings),
         ingredients: form.ingredients.map((x) => x.trim()),
@@ -211,6 +217,13 @@ export function RecipeEditor() {
                 masakanmu sendiri.
               </p>
             </div>
+            <VideoUpload
+              value={form.video || ''}
+              poster={form.image}
+              onChange={(v) => set('video', v)}
+              onBusy={setVideoUploading}
+              disabled={busy}
+            />
           </div>
           <div className="editor-fields">
             {step === 0 ? (
@@ -368,7 +381,7 @@ export function RecipeEditor() {
                   Kembali
                 </button>
               )}
-              <button className="button primary" disabled={busy || uploading}>
+              <button className="button primary" disabled={busy || uploading || videoUploading}>
                 {busy
                   ? 'Menyimpan…'
                   : step === 0

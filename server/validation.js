@@ -26,6 +26,9 @@ export const recipeSchema = z.object({
   description: text(20, 1200),
   region: z.enum(regions),
   image: text(1, 180),
+  video: z
+    .union([z.literal(''), z.string().regex(/^\/uploads\/[a-f0-9-]+\.(mp4|webm)$/)])
+    .optional(),
   minutes: z.coerce.number().int().min(1).max(1440),
   servings: z.coerce.number().int().min(1).max(100),
   ingredients: z.array(text(2, 200)).min(1).max(50),

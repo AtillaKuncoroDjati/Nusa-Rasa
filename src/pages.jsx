@@ -19,9 +19,11 @@ import {
   MessageCircle,
   ArrowRight,
   Utensils,
+  Play,
 } from 'lucide-react';
 import { api } from './api';
 import { useApp, Avatar, Spinner, Notice, Empty } from './App';
+import { RecipeVideo } from './video';
 
 export function RecipeCard({ recipe, onChange }) {
   const { user, toast } = useApp(),
@@ -58,7 +60,7 @@ export function RecipeCard({ recipe, onChange }) {
           <img src={recipe.image} alt={recipe.title} loading="lazy" />
           <span className="cover-shade" />
           <span className="read-recipe">
-            <Utensils size={22} />
+            {recipe.video ? <Play size={22} /> : <Utensils size={22} />}
             <span>Lihat resep</span>
           </span>
         </Link>
@@ -79,6 +81,12 @@ export function RecipeCard({ recipe, onChange }) {
           <MapPin size={12} />
           {recipe.region}
         </span>
+        {recipe.video && (
+          <span className="video-badge">
+            <Play size={12} />
+            Video
+          </span>
+        )}
       </div>
       <div className="card-body">
         <button
@@ -365,6 +373,19 @@ export function RecipeDetail() {
       <div className="detail-grid">
         <div>
           <img className="detail-photo" src={recipe.image} alt={recipe.title} />
+          {recipe.video && (
+            <section className="detail-video">
+              <h3>
+                <Play size={18} />
+                Video cara memasak
+              </h3>
+              <RecipeVideo
+                src={recipe.video}
+                poster={recipe.image}
+                title={'Video cara membuat ' + recipe.title}
+              />
+            </section>
+          )}
           <div className="detail-author">
             <Avatar user={{ name: recipe.author_name, avatar: recipe.author_avatar }} />
             <div>

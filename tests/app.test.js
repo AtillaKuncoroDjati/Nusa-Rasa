@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
 import sharp from 'sharp';
@@ -68,7 +68,7 @@ async function setup(t, { sendReset } = {}) {
     assert.equal(r.status, 201);
     return { ...r.data, cookie: r.cookie };
   };
-  return { db, database, request, register };
+  return { db, database, request, register, root, url };
 }
 const sample = {
   title: 'Resep uji dari dapur',
@@ -405,4 +405,145 @@ test('MySQL transactions roll back and concurrent likes/reset requests remain co
   );
   assert.deepEqual(resets.map((r) => r.status).sort(), [200, 400]);
   assert.equal((await request('/session', { session })).data.user, null);
+});
+
+async function videoUpload(request, session, extension = 'mp4') {
+  const bytes = await readFile(new URL('./fixtures/recipe-video.' + extension, import.meta.url));
+  const form = new FormData();
+  form.append('video', new Blob([bytes], { type: 'video/' + extension }), 'recipe.' + extension);
+  const result = await request('/uploads/video', { method: 'POST', body: form, session });
+  assert.equal(result.status, 201, JSON.stringify(result.data));
+  assert.match(result.data.path, new RegExp('^/uploads/[a-f0-9-]+\\.' + extension + '$'));
+  assert.ok(result.data.duration > 0);
+  return { path: result.data.path, bytes };
+}
+
+test('video uploads persist, support seeking, and can be replaced or removed from a recipe', async (t) => {
+  const { db, database, request, register, root, url } = await setup(t);
+  const owner = await register('Pemilik Video');
+  const image = await imageUpload(request, owner);
+  const mp4 = await videoUpload(request, owner),
+    webm = await videoUpload(request, owner, 'webm');
+  const made = await request('/recipes', {
+    method: 'POST',
+    body: { ...sample, image, video: mp4.path },
+    session: owner,
+  });
+  assert.equal(made.status, 201);
+  assert.equal(made.data.recipe.video, mp4.path);
+  const id = made.data.recipe.id;
+  const range = await fetch(url + mp4.path, { headers: { Range: 'bytes=0-31' } });
+  assert.equal(range.status, 206);
+  assert.match(range.headers.get('content-type'), /^video\/mp4/);
+  assert.equal(range.headers.get('content-range'), `bytes 0-31/${mp4.bytes.length}`);
+  assert.deepEqual(Buffer.from(await range.arrayBuffer()), mp4.bytes.subarray(0, 32));
+  const second = await openDatabase({ database });
+  try {
+    assert.equal((await second.get('SELECT video FROM recipes WHERE id=?', id)).video, mp4.path);
+  } finally {
+    await second.close();
+  }
+  assert.equal(
+    (await request('/recipes/' + id, { method: 'PUT', body: { ...sample, image }, session: owner }))
+      .data.recipe.video,
+    mp4.path,
+  );
+  assert.equal(
+    (
+      await request('/recipes/' + id, {
+        method: 'PUT',
+        body: { ...sample, image, video: webm.path },
+        session: owner,
+      })
+    ).data.recipe.video,
+    webm.path,
+  );
+  assert.equal(
+    (
+      await request('/recipes/' + id, {
+        method: 'PUT',
+        body: { ...sample, image, video: '' },
+        session: owner,
+      })
+    ).data.recipe.video,
+    '',
+  );
+  assert.deepEqual(await readdir(join(root, 'data/upload-tmp')), []);
+  assert.equal((await db.get("SELECT COUNT(*) AS n FROM uploads WHERE kind='video'")).n, 2);
+});
+
+test('video ownership, file types, authentication, CSRF and upload size are enforced', async (t) => {
+  const { db, request, register, root } = await setup(t);
+  const owner = await register('Pemilik Video'),
+    other = await register('Pengguna Lain', 'other@example.com');
+  const image = await imageUpload(request, owner),
+    video = (await videoUpload(request, owner)).path;
+  const otherImage = await imageUpload(request, other);
+  const create = (body, session = owner) =>
+    request('/recipes', { method: 'POST', body: { ...sample, image, ...body }, session });
+  assert.equal((await create({ image: otherImage, video }, other)).status, 400);
+  assert.equal((await create({ video: 'https://example.com/video.mp4' })).status, 400);
+  assert.equal((await create({ video: image })).status, 400);
+  assert.equal((await create({ image: video })).status, 400);
+  assert.equal(
+    (
+      await request('/profile', {
+        method: 'PATCH',
+        body: { name: 'Uji Video', bio: '', avatar: video },
+        session: owner,
+      })
+    ).status,
+    400,
+  );
+  const made = await create({ video });
+  assert.equal(
+    (
+      await request('/recipes/' + made.data.recipe.id, {
+        method: 'PUT',
+        body: { ...sample, image, video: '' },
+        session: other,
+      })
+    ).status,
+    403,
+  );
+  const sendFile = (bytes, options = {}) => {
+    const form = new FormData();
+    form.append('video', new Blob([bytes], { type: 'video/mp4' }), 'fake.mp4');
+    return request('/uploads/video', { method: 'POST', body: form, session: owner, ...options });
+  };
+  assert.equal((await sendFile('fake', { session: undefined })).status, 401);
+  assert.equal((await sendFile('fake', { headers: { 'X-CSRF-Token': 'wrong' } })).status, 403);
+  assert.equal((await sendFile('<html><script>alert(1)</script></html>')).status, 400);
+  assert.equal(
+    (
+      await sendFile(
+        await sharp({ create: { width: 16, height: 16, channels: 3, background: 'red' } })
+          .png()
+          .toBuffer(),
+      )
+    ).status,
+    400,
+  );
+  const tooLarge = await sendFile(Buffer.alloc(50 * 1024 * 1024 + 1));
+  assert.equal(tooLarge.status, 413);
+  assert.equal(tooLarge.data.error, 'Video maksimal 50 MB.');
+  assert.deepEqual(await readdir(join(root, 'data/upload-tmp')), []);
+  assert.equal((await db.get("SELECT COUNT(*) AS n FROM uploads WHERE kind='video'")).n, 1);
+});
+
+test('upgrading the old schema preserves recipes and marks existing uploads as images', async (t) => {
+  const { db } = await setup(t);
+  await db.run('DELETE FROM schema_migrations');
+  await db.run('ALTER TABLE recipes DROP COLUMN video');
+  await db.run('ALTER TABLE uploads DROP COLUMN kind');
+  await db.run('INSERT INTO uploads(path,user_id) VALUES(?,1)', '/uploads/legacy.webp');
+  await db.initialize();
+  await db.initialize();
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM recipes')).n, 6);
+  assert.equal((await db.get('SELECT video FROM recipes WHERE id=1')).video, '');
+  assert.equal(
+    (await db.get('SELECT kind FROM uploads WHERE path=?', '/uploads/legacy.webp')).kind,
+    'image',
+  );
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM schema_migrations')).n, 1);
 });

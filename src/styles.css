@@ -2433,3 +2433,126 @@ form label > small {
     visibility: visible;
   }
 }
+.video-upload {
+  margin-top: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--cream);
+}
+.video-upload-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.video-upload-heading h3,
+.detail-video h3 {
+  font-size: 14px;
+}
+.video-upload-heading span,
+.video-upload > small {
+  display: block;
+  color: #686b61;
+  font-size: 10px;
+  line-height: 1.8;
+}
+.video-upload > p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #5d6258;
+}
+.video-upload-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0 10px;
+}
+.video-file-button {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.video-file-button:focus-within {
+  outline: 3px solid #aa5b00;
+  outline-offset: 3px;
+}
+.video-file-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.video-file-button.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.video-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  color: #a02b25;
+  font-size: 11px;
+  padding: 10px 0;
+}
+.video-progress {
+  margin-top: 14px;
+  font-size: 11px;
+}
+.video-progress progress {
+  display: block;
+  width: 100%;
+  height: 7px;
+  margin-top: 9px;
+  accent-color: var(--orange);
+}
+.video-filename {
+  overflow-wrap: anywhere;
+  margin-top: 8px;
+}
+.recipe-video video {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  aspect-ratio: 16/9;
+  background: #171a16;
+  object-fit: contain;
+  border-radius: 10px;
+}
+.video-error {
+  font-size: 12px;
+  line-height: 1.8;
+  margin-top: 10px;
+}
+.video-error a {
+  text-decoration: underline;
+  font-weight: 600;
+}
+.detail-video {
+  margin: 24px 0;
+}
+.detail-video h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.video-badge {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 20px;
+  padding: 5px 10px;
+  background: #20221ee6;
+  color: white;
+  font-size: 10px;
+  pointer-events: none;
+}

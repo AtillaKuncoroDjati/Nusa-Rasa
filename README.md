@@ -8,15 +8,15 @@ Aplikasi berbagi resep Nusantara dengan desain oleh **Atilla Kuncoro Djati**. Da
 
 Sidebar oranye, kartu foto makanan, dan tipografi Poppins mengikuti arah desain Figma. Navigasi menyesuaikan layar desktop dan HP.
 
-| Halaman            | Yang bisa dilakukan                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| Beranda & Jelajahi | Melihat resep, mencari judul/deskripsi, menyaring daerah, mengurutkan resep terbaru atau paling disukai            |
-| Detail resep       | Membaca bahan dan langkah, mencentang bahan yang siap, menyukai, menandai, membagikan tautan, dan memberi komentar |
-| Unggah resep       | Mengunggah foto, mengisi informasi, bahan, dan cara membuat dalam dua langkah                                      |
-| Dapur Saya         | Melihat resep sendiri serta mengedit profil dan foto                                                               |
-| Penanda            | Mengumpulkan resep favorit per akun                                                                                |
-| Notifikasi         | Melihat pemberitahuan suka dan komentar dari pengguna lain                                                         |
-| Akun               | Daftar, masuk, keluar, dan pemulihan kata sandi melalui SMTP bila dikonfigurasi                                    |
+| Halaman            | Yang bisa dilakukan                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Beranda & Jelajahi | Melihat resep, mencari judul/deskripsi, menyaring daerah, mengurutkan resep terbaru atau paling disukai                                                 |
+| Detail resep       | Membaca bahan dan langkah, memutar video memasak, mencentang bahan yang siap, menyukai, menandai, membagikan tautan, dan memberi komentar               |
+| Unggah resep       | Mengunggah foto sampul dan video opsional, mengisi informasi, bahan, dan cara membuat dalam dua langkah; video dapat diganti atau dilepas saat mengedit |
+| Dapur Saya         | Melihat resep sendiri serta mengedit profil dan foto                                                                                                    |
+| Penanda            | Mengumpulkan resep favorit per akun                                                                                                                     |
+| Notifikasi         | Melihat pemberitahuan suka dan komentar dari pengguna lain                                                                                              |
+| Akun               | Daftar, masuk, keluar, dan pemulihan kata sandi melalui SMTP bila dikonfigurasi                                                                         |
 
 Enam resep contoh tersedia untuk mencoba aplikasi. Akun editorial **Dapur Nusa Rasa** tidak memiliki kata sandi dan tidak dapat digunakan untuk masuk. Buat akun sendiri melalui **Daftar**.
 
@@ -26,6 +26,7 @@ Enam resep contoh tersedia untuk mencoba aplikasi. Akun editorial **Dapur Nusa R
 - **Backend:** Node.js dan Express.
 - **Database:** MySQL / MariaDB melalui `mysql2`, cocok dengan layanan **MySQL di XAMPP**.
 - **Foto:** Multer dan Sharp; berkas disimpan di folder `uploads/`.
+- **Video:** Multer dan Mediabunny untuk memeriksa format, pemutar HTML5 dengan kontrol; berkas disimpan di `uploads/`.
 - **Email:** Nodemailer untuk tautan pemulihan kata sandi.
 
 XAMPP menyediakan database. Aplikasi dijalankan dengan Node.js, sehingga folder proyek tidak perlu dipindah ke `htdocs`. Apache diperlukan hanya jika ingin membuka phpMyAdmin.
@@ -73,7 +74,30 @@ Kebutuhan: **Node.js 24**, npm, dan XAMPP dengan MySQL/MariaDB aktif. Pengujian 
 
 Gunakan alamat yang sama dengan `APP_ORIGIN`. Jika mengganti host atau port, ubah keduanya. Server memeriksa asal formulir untuk melindungi sesi pengguna.
 
-`db:setup` membuat database bila belum ada, membuat tabel yang belum ada, serta mengisi contoh hanya ketika tabel pengguna kosong. Perintah ini tidak menghapus data yang sudah ada. Perubahan struktur tabel di versi berikutnya memerlukan migrasi tersendiri.
+`db:setup` membuat database bila belum ada, membuat tabel dan menjalankan migrasi berversi, serta mengisi contoh hanya ketika tabel pengguna kosong. Perintah ini tidak menghapus resep atau akun yang sudah ada. Migrasi tercatat dalam tabel `schema_migrations` dan aman dijalankan kembali.
+
+### Memperbarui instalasi yang sudah ada
+
+Cadangkan database dan folder `uploads/`, hentikan server aplikasi, lalu jalankan setelah mengambil kode terbaru:
+
+```sh
+npm ci
+npm run db:setup
+npm run dev
+```
+
+Migrasi video menambahkan kolom `recipes.video` dan `uploads.kind`. Resep lama tetap menggunakan foto sampul tanpa video. Untuk mode produksi, jalankan `npm run build` lalu `npm start` sebagai pengganti `npm run dev`.
+
+### Mengunggah video resep
+
+1. Masuk, lalu buka **Unggah Resep** atau edit resep milikmu.
+2. Isi foto sampul dan informasi resep. Pada bagian **Video cara memasak**, pilih video opsional.
+3. Tunggu progres unggahan dan pemeriksaan selesai. Unggahan dapat dibatalkan; video yang sudah terpasang dapat diganti atau dihapus dari resep.
+4. Lengkapi bahan dan langkah, lalu simpan. Video muncul di detail resep dengan kontrol putar, suara, dan layar penuh, tanpa autoplay.
+
+Ukuran maksimal **50 MB**. Gunakan **MP4 H.264** (suara AAC/MP3) atau **WebM VP8/VP9** (suara Opus/Vorbis). Berkas diperiksa dari isinya, bukan hanya nama atau tipe yang dikirim browser. Video tidak dikompres atau dikonversi oleh server; ekspor video ke format tersebut sebelum mengunggah bila format aslinya berbeda. FFmpeg tidak diperlukan untuk menjalankan aplikasi.
+
+Tombol **Hapus dari resep** melepaskan video setelah perubahan disimpan. Berkas unggahan tetap ada di penyimpanan; pembersihan berkas yang tidak digunakan belum dijalankan otomatis.
 
 ### Melihat database di phpMyAdmin
 
@@ -89,13 +113,13 @@ Tanpa SMTP, pendaftaran dan login tetap berfungsi; halaman pemulihan menjelaskan
 
 ## Perintah
 
-| Perintah           | Fungsi                                                 |
-| ------------------ | ------------------------------------------------------ |
-| `npm run db:setup` | Membuat tabel dan mengisi data awal                    |
-| `npm run dev`      | Server aplikasi dan frontend dengan pembaruan otomatis |
-| `npm test`         | Pengujian integrasi terhadap MySQL yang aktif          |
-| `npm run build`    | Menghasilkan frontend siap distribusi di `dist/`       |
-| `npm start`        | Menjalankan backend dan hasil build frontend           |
+| Perintah           | Fungsi                                                    |
+| ------------------ | --------------------------------------------------------- |
+| `npm run db:setup` | Membuat tabel, menjalankan migrasi, dan mengisi data awal |
+| `npm run dev`      | Server aplikasi dan frontend dengan pembaruan otomatis    |
+| `npm test`         | Pengujian integrasi terhadap MySQL yang aktif             |
+| `npm run build`    | Menghasilkan frontend siap distribusi di `dist/`          |
+| `npm start`        | Menjalankan backend dan hasil build frontend              |
 
 Tes menggunakan database sementara bernama `nusa_rasa_test_<acak>`, lalu membersihkannya. Pengguna database untuk tes harus memiliki izin membuat dan menghapus database sementara. Tes tidak mengosongkan database aplikasi.
 
@@ -103,11 +127,12 @@ Tes menggunakan database sementara bernama `nusa_rasa_test_<acak>`, lalu members
 
 ```text
 database/schema.sql  Struktur database untuk MySQL dan phpMyAdmin
-server/              API, autentikasi, koneksi database, dan seed
+server/              API, autentikasi, migrasi, pemeriksaan video, dan seed
 src/                 Halaman serta komponen React
 public/assets/       Foto resep contoh dari desain Figma
 tests/               Pengujian integrasi API dan database
-uploads/             Foto pengguna; lokal dan tidak masuk Git
+uploads/             Foto dan video pengguna; lokal dan tidak masuk Git
+data/upload-tmp/     Video sementara selama pemeriksaan; tidak disajikan publik
 .env.example         Contoh konfigurasi tanpa kredensial pribadi
 ```
 
@@ -115,17 +140,16 @@ Penjelasan relasi data dan alur aplikasi tersedia di [dokumentasi arsitektur](do
 
 ## Penyimpanan dan hosting
 
-Data akun dan resep disimpan di MySQL; foto di `uploads/`. Cadangkan keduanya bersama-sama, misalnya ekspor SQL melalui phpMyAdmin dan salin folder foto saat tidak ada perubahan data. Jangan mengunggah cadangan berisi akun pengguna ke repositori publik.
+Data akun dan resep disimpan di MySQL; foto dan video di `uploads/`. Cadangkan keduanya bersama-sama, misalnya ekspor SQL melalui phpMyAdmin dan salin folder media saat tidak ada perubahan data. Jangan mengunggah cadangan berisi akun pengguna ke repositori publik.
 
-Untuk hosting, gunakan layanan yang menjalankan Node.js, koneksi MySQL yang tersedia, dan penyimpanan foto persisten. Tetapkan `NODE_ENV=production` serta `APP_ORIGIN` HTTPS, dan gunakan akun database khusus aplikasi. Menaruh hasil `dist/` saja di hosting statis tidak menjalankan API, login, atau database.
+Untuk hosting, gunakan layanan yang menjalankan Node.js, koneksi MySQL yang tersedia, dan penyimpanan media persisten. Tetapkan `NODE_ENV=production` serta `APP_ORIGIN` HTTPS, dan gunakan akun database khusus aplikasi. Jika memakai reverse proxy, sesuaikan batas request agar cukup untuk video 50 MB beserta multipart overhead. Menaruh hasil `dist/` saja di hosting statis tidak menjalankan API, login, atau database.
 
 ## Pengembangan berikutnya
 
 - Pagination untuk koleksi besar; daftar saat ini dibatasi 100 resep/komentar.
 - Verifikasi email serta pelaporan dan moderasi konten.
-- Penyimpanan foto ke object storage dan pembersihan foto yang tidak lagi digunakan.
-- Video tutorial, penyesuaian takaran bahan, dan koleksi resep tematik.
-- Migrasi database berversi ketika struktur data berkembang.
+- Penyimpanan media ke object storage dan pembersihan unggahan yang tidak lagi digunakan.
+- Kompresi video, penyesuaian takaran bahan, dan koleksi resep tematik.
 
 ## Kredit
 
